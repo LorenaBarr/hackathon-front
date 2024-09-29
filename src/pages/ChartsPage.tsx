@@ -58,6 +58,30 @@ const ChartsPage = () => {
     }));
   }, [deliveries]);
 
+  const timeSeriesData = useMemo(() => {
+    if (!deliveries) return null;
+
+    const sortedDeliveries = [...deliveries].sort(
+      (a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at)
+    );
+    const dailyData = sortedDeliveries.reduce((acc, delivery) => {
+      const date = new Date(delivery.scheduled_at).toLocaleDateString();
+      if (!acc[date]) {
+        acc[date] = { totalPrice: 0, totalWeight: 0, count: 0 };
+      }
+      acc[date].totalPrice += parseFloat(delivery.total_price);
+      acc[date].totalWeight += parseFloat(delivery.weight_kg);
+      acc[date].count += 1;
+      return acc;
+    }, {});
+
+    return Object.entries(dailyData).map(([date, data]) => ({
+      date,
+      avgPrice: data.totalPrice / data.count,
+      avgWeight: data.totalWeight / data.count,
+    }));
+  }, [deliveries]);
+
   if (isLoading) {
     return (
       <div className="text-center text-neon-green text-xl">Cargando...</div>
@@ -151,7 +175,7 @@ const ChartsPage = () => {
     ],
   };
 
-  // New charts data
+  // Adjusted Métricas Múltiples por Ruta
   const multiMetricBarData = {
     labels: processedData.map((d) => d.route),
     datasets: [
@@ -159,18 +183,107 @@ const ChartsPage = () => {
         label: "Número de Entregas",
         data: processedData.map((d) => d.deliveryCount),
         backgroundColor: "rgba(255, 99, 132, 0.5)",
+        yAxisID: "y-axis-1",
       },
       {
-        label: "Precio Promedio",
-        data: processedData.map((d) => d.avgPrice),
+        label: "Precio Promedio ($)",
+        data: processedData.map((d) => d.avgPrice.toFixed(2)),
         backgroundColor: "rgba(53, 162, 235, 0.5)",
+        yAxisID: "y-axis-2",
       },
       {
         label: "Peso Promedio (kg)",
-        data: processedData.map((d) => d.avgWeight),
+        data: processedData.map((d) => d.avgWeight.toFixed(2)),
         backgroundColor: "rgba(75, 192, 192, 0.5)",
+        yAxisID: "y-axis-2",
       },
     ],
+  };
+
+  const multiMetricOptions = {
+    ...options,
+    scales: {
+      x: { ...options.scales.x },
+      "y-axis-1": {
+        type: "linear",
+        position: "left",
+        ticks: { color: "#00FF00" },
+        grid: { color: "rgba(255, 255, 255, 0.1)" },
+        title: {
+          display: true,
+          text: "Número de Entregas",
+          color: "#00FF00",
+        },
+      },
+      "y-axis-2": {
+        type: "linear",
+        position: "right",
+        ticks: { color: "#00FF00" },
+        grid: { color: "rgba(255, 255, 255, 0.1)" },
+        title: {
+          display: true,
+          text: "Precio ($) / Peso (kg)",
+          color: "#00FF00",
+        },
+      },
+    },
+  };
+
+  // Adjusted Serie Temporal de Precios y Pesos
+  const timeSeriesChartData = {
+    labels: timeSeriesData.map((d) => d.date),
+    datasets: [
+      {
+        label: "Precio Promedio por Entrega ($)",
+        data: timeSeriesData.map((d) => d.avgPrice.toFixed(2)),
+        borderColor: "rgb(255, 99, 132)",
+        backgroundColor: "rgba(255, 99, 132, 0.5)",
+        yAxisID: "y-axis-1",
+      },
+      {
+        label: "Peso Promedio por Entrega (kg)",
+        data: timeSeriesData.map((d) => d.avgWeight.toFixed(2)),
+        borderColor: "rgb(53, 162, 235)",
+        backgroundColor: "rgba(53, 162, 235, 0.5)",
+        yAxisID: "y-axis-2",
+      },
+    ],
+  };
+
+  const timeSeriesOptions = {
+    ...options,
+    scales: {
+      x: {
+        ...options.scales.x,
+        title: {
+          display: true,
+          text: "Fecha",
+          color: "#00FF00",
+        },
+      },
+      "y-axis-1": {
+        type: "linear",
+        position: "left",
+        ticks: { color: "#00FF00" },
+        grid: { color: "rgba(255, 255, 255, 0.1)" },
+        title: {
+          display: true,
+          text: "Precio Promedio ($)",
+          color: "#00FF00",
+        },
+      },
+      "y-axis-2": {
+        type: "linear",
+        position: "right",
+        ticks: { color: "#00FF00" },
+        grid: { color: "rgba(255, 255, 255, 0.1)" },
+        title: {
+          display: true,
+          text: "Peso Promedio (kg)",
+          color: "#00FF00",
+        },
+      },
+    },
   };
 
   const scatterData = {
@@ -202,31 +315,11 @@ const ChartsPage = () => {
         ...options.scales.y,
         title: {
           display: true,
-          text: "Precio Total",
+          text: "Precio Total ($)",
           color: "#00FF00",
         },
       },
     },
-  };
-
-  const timeSeriesData = {
-    labels: deliveries.map((d) =>
-      new Date(d.scheduled_at).toLocaleDateString()
-    ),
-    datasets: [
-      {
-        label: "Precio por Entrega",
-        data: deliveries.map((d) => parseFloat(d.total_price)),
-        borderColor: "rgb(255, 99, 132)",
-        backgroundColor: "rgba(255, 99, 132, 0.5)",
-      },
-      {
-        label: "Peso por Entrega",
-        data: deliveries.map((d) => parseFloat(d.weight_kg)),
-        borderColor: "rgb(53, 162, 235)",
-        backgroundColor: "rgba(53, 162, 235, 0.5)",
-      },
-    ],
   };
 
   return (
@@ -275,7 +368,14 @@ const ChartsPage = () => {
           <h2 className="text-2xl font-semibold text-neon-green mb-4 text-center">
             Métricas Múltiples por Ruta
           </h2>
-          <Bar data={multiMetricBarData} options={options} />
+          <Bar data={multiMetricBarData} options={multiMetricOptions} />
+        </div>
+
+        <div className="bg-gray-800 shadow-neon rounded-lg p-6">
+          <h2 className="text-2xl font-semibold text-neon-green mb-4 text-center">
+            Serie Temporal de Precios y Pesos Promedio
+          </h2>
+          <Line data={timeSeriesChartData} options={timeSeriesOptions} />
         </div>
 
         <div className="bg-gray-800 shadow-neon rounded-lg p-6">
@@ -283,13 +383,6 @@ const ChartsPage = () => {
             Relación Peso-Precio
           </h2>
           <Scatter data={scatterData} options={scatterOptions} />
-        </div>
-
-        <div className="bg-gray-800 shadow-neon rounded-lg p-6">
-          <h2 className="text-2xl font-semibold text-neon-green mb-4 text-center">
-            Serie Temporal de Precios y Pesos
-          </h2>
-          <Line data={timeSeriesData} options={options} />
         </div>
       </div>
       <Footer />
