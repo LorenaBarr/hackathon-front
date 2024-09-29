@@ -1,14 +1,33 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useRotesDelivery } from "../hooks/useRoutesDelivery";
 
-// Definir tipos de transporte con sus tarifas por kilogramo
-const shippingTypes = {
-  "Tracto Camión": 20000, // 20,000 por kilogramo
-  Camion: 17000, // 17,000 por kilogramo
-  Furgoneta: 22000, // 22,000 por kilogramo
-};
+interface ShippingType {
+  id: number;
+  name: string;
+}
+
+interface Rate {
+  id: number;
+  rate: number;
+  shipping_type: ShippingType;
+}
+
+interface Route {
+  id: number;
+  route: string;
+  km_distance: number;
+  travel_time: string;
+  rates: Rate[];
+}
 
 const OrderForm = () => {
+  const {
+    data: routesData,
+    error: routesError,
+    isLoading: routesLoading,
+  } = useRotesDelivery();
+
   const [formData, setFormData] = useState({
     route: "",
     product: "",
@@ -18,8 +37,14 @@ const OrderForm = () => {
     address: "",
   });
 
-  const [rateInfo, setRateInfo] = useState(""); // Para mostrar la tarifa
+  const [rateInfo, setRateInfo] = useState<number>(0); // Para almacenar la tarifa seleccionada
+  const [totalPrice, setTotalPrice] = useState<number>(0); // Para mostrar el total de la orden
   const navigate = useNavigate(); // Para redirigir a la página de seguimiento
+
+  useEffect(() => {
+    // Actualiza el total cada vez que cambian la tarifa o la cantidad
+    setTotalPrice(formData.quantity * rateInfo);
+  }, [formData.quantity, rateInfo]);
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -38,10 +63,24 @@ const OrderForm = () => {
       ...formData,
       shippingType: selectedShippingType,
     });
-    // Mostrar el mensaje con la tarifa seleccionada
-    setRateInfo(
-      `Tarifa: $${shippingTypes[selectedShippingType]} por kilogramo`
+
+    // Obtener la ruta seleccionada
+    const selectedRoute = routesData?.find(
+      (route: Route) => route.id === parseInt(formData.route)
     );
+
+    if (selectedRoute) {
+      // Buscar la tarifa correspondiente al tipo de transporte seleccionado en esa ruta
+      const selectedRate = selectedRoute.rates.find(
+        (rate: Rate) => rate.shipping_type.name === selectedShippingType
+      );
+
+      if (selectedRate) {
+        setRateInfo(selectedRate.rate); // Almacenar la tarifa seleccionada
+      } else {
+        setRateInfo(0); // Si no hay tarifa, limpiar la tarifa
+      }
+    }
   };
 
   const handleQuantityChange = (change: number) => {
@@ -54,28 +93,38 @@ const OrderForm = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const selectedRoute = routesData?.find(
+      (route: Route) => route.id === parseInt(formData.route)
+    ); // Obtener la ruta seleccionada
+
+    if (!selectedRoute) return; // Si no se selecciona una ruta, no se envía el formulario
+
     const orderData = {
       product_name: formData.product,
       weight_kg: formData.quantity,
-      total_price: formData.quantity * shippingTypes[formData.shippingType], // Total calculado
+      total_price: totalPrice, // Total calculado basado en la tarifa
       scheduled_at: new Date().toISOString(),
-      transport_type: 1, // Ejemplo de ID para transporte
+      transport_type: formData.shippingType, // Tipo de transporte seleccionado
       user: 1, // Usuario mockeado
-      delivery_route: formData.route, // Ruta seleccionada
+      delivery_route: selectedRoute.id, // Ruta seleccionada
       recipient: formData.recipient,
       recipient_address: formData.address,
     };
 
     try {
-      // Simulación de un POST exitoso
+      // Mostrar los datos enviados en la consola
       console.log("Datos enviados:", orderData);
 
+      // Simulación de un POST exitoso
       // Redirigir a /orders-history y pasar los datos de la orden
       navigate("/orders-history", { state: orderData });
     } catch (error) {
       console.error("Error al enviar la orden:", error);
     }
   };
+
+  if (routesLoading) return <p>Cargando rutas...</p>;
+  if (routesError) return <p>Error al cargar rutas</p>;
 
   return (
     <div className="md:w-1/2 bg-gray-800 p-8 shadow-lg rounded-lg text-gray-200">
@@ -92,13 +141,14 @@ const OrderForm = () => {
             name="route"
             onChange={handleChange}
             className="mt-1 block w-full border-gray-600 bg-gray-700 rounded-md shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm"
+            value={formData.route}
           >
             <option value="">Selecciona una ruta</option>
-            <option value="1">Bogotá - Medellín (413 km)</option>
-            <option value="2">Barranquilla - Bogotá (1000 km)</option>
-            <option value="3">Cali - Cartagena (1220 km)</option>
-            <option value="4">Medellín - Bucaramanga (500 km)</option>
-            <option value="5">Bogotá - Cali (475 km)</option>
+            {routesData?.map((route: Route) => (
+              <option key={route.id} value={route.id}>
+                {route.route} ({route.km_distance} km)
+              </option>
+            ))}
           </select>
         </div>
 
@@ -125,14 +175,17 @@ const OrderForm = () => {
             name="shippingType"
             onChange={handleShippingChange}
             className="mt-1 block w-full border-gray-600 bg-gray-700 rounded-md shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm"
+            value={formData.shippingType}
           >
             <option value="">Selecciona el tipo de transporte</option>
             <option value="Tracto Camión">Tracto Camión</option>
             <option value="Camion">Camión</option>
             <option value="Furgoneta">Furgoneta</option>
           </select>
-          {rateInfo && (
-            <p className="mt-2 text-sm text-green-400">{rateInfo}</p>
+          {rateInfo > 0 && (
+            <p className="mt-2 text-sm text-green-400">
+              Tarifa: ${rateInfo} por kilogramo
+            </p>
           )}
         </div>
 
@@ -164,6 +217,14 @@ const OrderForm = () => {
               +
             </button>
           </div>
+        </div>
+
+        {/* Total de la orden */}
+        <div>
+          <label className="block text-sm font-medium text-gray-300">
+            Total de la Orden
+          </label>
+          <p className="text-lg text-green-400">${totalPrice.toFixed(2)}</p>
         </div>
 
         {/* Destinatario */}
