@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useRotesDelivery } from "../hooks/useRoutesDelivery";
+import { useDelivery } from "../hooks/useDelivery";
 
 interface ShippingType {
   id: number;
@@ -27,6 +28,7 @@ const OrderForm = () => {
     error: routesError,
     isLoading: routesLoading,
   } = useRotesDelivery();
+  const { mutate: submitDelivery, isError, isSuccess } = useDelivery(); // Usar mutate del hook
 
   const [formData, setFormData] = useState({
     route: "",
@@ -37,12 +39,11 @@ const OrderForm = () => {
     address: "",
   });
 
-  const [rateInfo, setRateInfo] = useState<number>(0); // Para almacenar la tarifa seleccionada
-  const [totalPrice, setTotalPrice] = useState<number>(0); // Para mostrar el total de la orden
-  const navigate = useNavigate(); // Para redirigir a la página de seguimiento
+  const [rateInfo, setRateInfo] = useState<number>(0);
+  const [totalPrice, setTotalPrice] = useState<number>(0);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    // Actualiza el total cada vez que cambian la tarifa o la cantidad
     setTotalPrice(formData.quantity * rateInfo);
   }, [formData.quantity, rateInfo]);
 
@@ -64,21 +65,19 @@ const OrderForm = () => {
       shippingType: selectedShippingType,
     });
 
-    // Obtener la ruta seleccionada
     const selectedRoute = routesData?.find(
       (route: Route) => route.id === parseInt(formData.route)
     );
 
     if (selectedRoute) {
-      // Buscar la tarifa correspondiente al tipo de transporte seleccionado en esa ruta
       const selectedRate = selectedRoute.rates.find(
         (rate: Rate) => rate.shipping_type.name === selectedShippingType
       );
 
       if (selectedRate) {
-        setRateInfo(selectedRate.rate); // Almacenar la tarifa seleccionada
+        setRateInfo(selectedRate.rate);
       } else {
-        setRateInfo(0); // Si no hay tarifa, limpiar la tarifa
+        setRateInfo(0);
       }
     }
   };
@@ -95,32 +94,30 @@ const OrderForm = () => {
 
     const selectedRoute = routesData?.find(
       (route: Route) => route.id === parseInt(formData.route)
-    ); // Obtener la ruta seleccionada
-
-    if (!selectedRoute) return; // Si no se selecciona una ruta, no se envía el formulario
+    );
+    if (!selectedRoute) return;
 
     const orderData = {
       product_name: formData.product,
       weight_kg: formData.quantity,
-      total_price: totalPrice, // Total calculado basado en la tarifa
+      total_price: totalPrice,
       scheduled_at: new Date().toISOString(),
-      transport_type: formData.shippingType, // Tipo de transporte seleccionado
+      transport_type: 2,
       user: 1, // Usuario mockeado
-      delivery_route: selectedRoute.id, // Ruta seleccionada
+      delivery_route: selectedRoute.id,
       recipient: formData.recipient,
       recipient_address: formData.address,
     };
 
-    try {
-      // Mostrar los datos enviados en la consola
-      console.log("Datos enviados:", orderData);
-
-      // Simulación de un POST exitoso
-      // Redirigir a /orders-history y pasar los datos de la orden
-      navigate("/orders-history", { state: orderData });
-    } catch (error) {
-      console.error("Error al enviar la orden:", error);
-    }
+    submitDelivery(orderData, {
+      onSuccess: () => {
+        // Redirigir a /orders-history en caso de éxito
+        navigate("/orders-history", { state: orderData });
+      },
+      onError: (error) => {
+        console.error("Error al enviar la orden:", error);
+      },
+    });
   };
 
   if (routesLoading) return <p>Cargando rutas...</p>;
@@ -258,10 +255,23 @@ const OrderForm = () => {
         {/* Botón de Submit */}
         <button
           type="submit"
+          disabled={false}
           className="w-full bg-gradient-to-r from-pink-600 to-blue-600 text-white py-2 rounded-md shadow hover:from-pink-700 hover:to-blue-700 transition duration-300"
         >
-          Enviar
+          {"Enviar"}
         </button>
+
+        {/* Error */}
+        {isError && (
+          <p className="text-red-400 mt-2">
+            Hubo un error al procesar tu orden.
+          </p>
+        )}
+
+        {/* Éxito */}
+        {isSuccess && (
+          <p className="text-green-400 mt-2">Orden enviada con éxito.</p>
+        )}
       </form>
     </div>
   );
