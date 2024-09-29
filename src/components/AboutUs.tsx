@@ -20,11 +20,6 @@ const AboutUs = () => {
           en la transformación digital como clave para el futuro de las
           operaciones logísticas.
         </p>
-        <img
-          src="/images/agro-team.jpg"
-          alt="Nuestro equipo"
-          className="w-full max-w-lg mx-auto rounded-lg border-4 border-neon-pink shadow-neon"
-        />
       </div>
     </div>
   );

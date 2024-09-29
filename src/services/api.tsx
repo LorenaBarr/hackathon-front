@@ -31,6 +31,16 @@ const deliveriesByUser = {
   },
 };
 
+const confirmDelivery = async (id: number) => {
+  const response = await SUPPLY_CHAIN_API.post(`deliveries/${id}/confirm/`);
+  return response.data;
+};
+
+const cancelDelivery = async (id: number) => {
+  const response = await SUPPLY_CHAIN_API.post(`deliveries/${id}/cancel/`);
+  return response.data;
+};
+
 const postDelivery = async (data: {
   product_name: string;
   weight_kg: number;
@@ -48,4 +58,11 @@ const postDelivery = async (data: {
   return response.data;
 };
 
-export { foo, routes, deliveriesByUser, postDelivery };
+export {
+  foo,
+  routes,
+  deliveriesByUser,
+  postDelivery,
+  confirmDelivery,
+  cancelDelivery,
+};

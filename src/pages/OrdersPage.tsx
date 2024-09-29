@@ -3,9 +3,13 @@ import React, { useState } from "react";
 import { useDeliveryByUser } from "../hooks/useDeliveryByUser";
 import NavBar from "../components/NavBar";
 import Footer from "../components/Footer";
+import { useConfirmDelivery } from "../hooks/useConfirmDelivery";
+import { useCancelDelivery } from "../hooks/useCancelDelivery";
 
 const OrdersPage = () => {
   const { data: deliveries, isLoading, isError, error } = useDeliveryByUser();
+  const { mutate: confirmMutate } = useConfirmDelivery();
+  const { mutate: cancelMutate } = useCancelDelivery();
 
   // Estados para controlar la visibilidad de cada categoría de servicios
   const [activeSection, setActiveSection] = useState({
@@ -23,12 +27,28 @@ const OrdersPage = () => {
 
   const confirmService = (id: any) => {
     console.log(`Confirmando servicio con ID: ${id}`);
-    // Implementar lógica de confirmación aquí
+
+    confirmMutate(id, {
+      onSuccess: () => {
+        console.log("Servicio confirmado correctamente.");
+      },
+      onError: (error) => {
+        console.error("Error al confirmar el servicio:", error);
+      },
+    });
   };
 
   const cancelService = (id: any) => {
     console.log(`Cancelando servicio con ID: ${id}`);
-    // Implementar lógica de cancelación aquí
+
+    cancelMutate(id, {
+      onSuccess: () => {
+        console.log("Servicio cancelado correctamente.");
+      },
+      onError: (error) => {
+        console.error("Error al cancelar el servicio:", error);
+      },
+    });
   };
 
   if (isLoading) {

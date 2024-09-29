@@ -1,7 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { postDelivery } from "../services/api";
 
-export const useRegister = () => {
+export const useDelivery = () => {
   const mutation = useMutation({
     mutationFn: postDelivery,
   });
